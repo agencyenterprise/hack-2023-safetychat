@@ -20,10 +20,14 @@ import HomeContext from '@/pages/api/home/home.context';
 
 import { ChatModeIcon } from '@/components/Chat/ChatModeIcon';
 
+import ChatContext from './Chat.context';
+import { ChatInputTokenCount } from './ChatInputTokenCount';
 import { ChatModeSelect } from './ChatModeSelect';
 import { ChatPluginList } from './ChatPluginList';
 import { PromptList } from './PromptList';
 import { VariableModal } from './VariableModal';
+
+import classNames from 'classnames';
 
 interface Props {
   onSend: (
@@ -32,13 +36,23 @@ interface Props {
     plugins: Plugin[],
   ) => void;
   onRegenerate: (chatMode: ChatMode | null, plugins: Plugin[]) => void;
-  stopConversationRef: MutableRefObject<boolean>;
   textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
 }
 
-function ChatInputContainer({ children }: { children: React.ReactNode }) {
+function ChatInputContainer({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="stretch mx-2 mt-0 flex flex-row gap-3 last:mb-2 md:mx-4 md:mt-[6px] md:last:mb-6 lg:mx-auto lg:max-w-3xl">
+    <div
+      className={classNames(
+        'stretch mx-2 mt-0 flex flex-row gap-3 last:mb-2 md:mx-4 md:mt-[6px] md:last:mb-6 lg:mx-auto lg:max-w-3xl ',
+        className,
+      )}
+    >
       <div className="relative mx-2 flex w-full flex-grow flex-col rounded-md border border-black/10 bg-white shadow-[0_0_10px_rgba(0,0,0,0.10)] dark:border-gray-900/50 dark:bg-[#40414F] dark:text-white dark:shadow-[0_0_15px_rgba(0,0,0,0.10)] sm:mx-4">
         {children}
       </div>
@@ -97,17 +111,23 @@ function ChatControlButton({
   );
 }
 
-export const ChatInput = ({
-  onSend,
-  onRegenerate,
-  stopConversationRef,
-  textareaRef,
-}: Props) => {
+export const ChatInput = ({ onSend, onRegenerate, textareaRef }: Props) => {
   const { t } = useTranslation('chat');
 
   const {
-    state: { selectedConversation, messageIsStreaming, prompts },
+    state: {
+      selectedConversation,
+      messageIsStreaming,
+      prompts,
+      publicPrompts,
+      stopConversationRef,
+    },
   } = useContext(HomeContext);
+
+  const {
+    state: { selectedPlugins, chatMode },
+    dispatch: chatDispatch,
+  } = useContext(ChatContext);
 
   const [content, setContent] = useState<string>();
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -117,16 +137,12 @@ export const ChatInput = ({
   const [variables, setVariables] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [showPluginSelect, setShowPluginSelect] = useState(false);
-  const [chatMode, setChatMode] = useState<ChatMode>(ChatModes.direct);
-  const [selectedPlugins, setSelectedPlugins] = useState<Plugin[]>([]);
   const [lastDownKey, setLastDownKey] = useState<string>('');
   const [endComposing, setEndComposing] = useState<boolean>(false);
+  const [filteredPrompts, setFilteredPrompts] = useState<Prompt[]>(prompts);
+  const [filteredPublicPrompts, setFilteredPublicPrompts] = useState<Prompt[]>(publicPrompts);
 
   const promptListRef = useRef<HTMLUListElement | null>(null);
-
-  const filteredPrompts = prompts.filter((prompt) =>
-    prompt.name.toLowerCase().includes(promptInputValue.toLowerCase()),
-  );
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -184,7 +200,7 @@ export const ChatInput = ({
   };
 
   const handleInitModal = () => {
-    const selectedPrompt = filteredPrompts[activePromptIndex];
+    const selectedPrompt = [...filteredPrompts, ...filteredPublicPrompts][activePromptIndex];
     if (selectedPrompt) {
       setContent((prevContent) => {
         const newContent = prevContent?.replace(
@@ -207,10 +223,11 @@ export const ChatInput = ({
       return;
     }
     if (showPromptList) {
+      const totalPrompts = filteredPrompts.length + filteredPublicPrompts.length;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setActivePromptIndex((prevIndex) =>
-          prevIndex < prompts.length - 1 ? prevIndex + 1 : prevIndex,
+          prevIndex < totalPrompts - 1 ? prevIndex + 1 : prevIndex,
         );
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -220,7 +237,7 @@ export const ChatInput = ({
       } else if (e.key === 'Tab') {
         e.preventDefault();
         setActivePromptIndex((prevIndex) =>
-          prevIndex < prompts.length - 1 ? prevIndex + 1 : 0,
+          prevIndex < totalPrompts - 1 ? prevIndex + 1 : 0,
         );
       } else if (e.key === 'Enter') {
         e.preventDefault();
@@ -293,6 +310,20 @@ export const ChatInput = ({
   };
 
   useEffect(() => {
+    const filteredPrompts = prompts.filter((prompt) =>
+      prompt.name.toLowerCase().includes(promptInputValue.toLowerCase()),
+    );
+    setFilteredPrompts(filteredPrompts)
+  }, [prompts, promptInputValue, setFilteredPrompts]);
+
+  useEffect(() => {
+    const filteredPublicPrompts = publicPrompts.filter((prompt) =>
+      prompt.name.toLowerCase().includes(promptInputValue.toLowerCase()),
+    );
+    setFilteredPublicPrompts(filteredPublicPrompts)
+  }, [publicPrompts, promptInputValue, setFilteredPublicPrompts]);
+
+  useEffect(() => {
     if (promptListRef.current) {
       promptListRef.current.scrollTop = activePromptIndex * 30;
     }
@@ -306,7 +337,7 @@ export const ChatInput = ({
         textareaRef?.current?.scrollHeight > 400 ? 'auto' : 'hidden'
       }`;
     }
-  }, [content]);
+  }, [content, textareaRef]);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -340,15 +371,18 @@ export const ChatInput = ({
         onRegenerate={() => handleRegenerate()}
         onStopConversation={handleStopConversation}
       />
-      {chatMode.id === ChatModeID.AGENT && (
+      {(chatMode.id === ChatModeID.AGENT ||
+        chatMode.id === ChatModeID.CONVERSATIONAL_AGENT) && (
         <ChatInputContainer>
           <ChatPluginList
             selectedPlugins={selectedPlugins}
-            onChange={(plugins) => setSelectedPlugins(plugins)}
+            onChange={(plugins) =>
+              chatDispatch({ field: 'selectedPlugins', value: plugins })
+            }
           />
         </ChatInputContainer>
       )}
-      <ChatInputContainer>
+      <ChatInputContainer className="mb-4">
         <button
           className="absolute left-2 top-2 rounded-sm p-1 text-neutral-800 opacity-60 hover:bg-neutral-200 hover:text-neutral-900 dark:bg-opacity-50 dark:text-neutral-100 dark:hover:text-neutral-200"
           onClick={() => setShowPluginSelect(!showPluginSelect)}
@@ -368,7 +402,7 @@ export const ChatInput = ({
                 }
               }}
               onChatModeChange={(plugin: ChatMode) => {
-                setChatMode(plugin);
+                chatDispatch({ field: 'chatMode', value: plugin });
                 setShowPluginSelect(false);
 
                 if (textareaRef && textareaRef.current) {
@@ -418,11 +452,12 @@ export const ChatInput = ({
             <IconSend size={18} />
           )}
         </button>
-        {showPromptList && filteredPrompts.length > 0 && (
+        {showPromptList && (filteredPrompts.length > 0 || filteredPublicPrompts.length > 0) && (
           <div className="absolute bottom-12 w-full">
             <PromptList
               activePromptIndex={activePromptIndex}
               prompts={filteredPrompts}
+              publicPrompts={filteredPublicPrompts}
               onSelect={handleInitModal}
               onMouseOver={setActivePromptIndex}
               promptListRef={promptListRef}
@@ -431,14 +466,21 @@ export const ChatInput = ({
         )}
         {isModalVisible && (
           <VariableModal
-            prompt={filteredPrompts[activePromptIndex]}
+            prompt={[...filteredPrompts, ...filteredPublicPrompts][activePromptIndex]}
             variables={variables}
             onSubmit={handleSubmit}
             onClose={() => setIsModalVisible(false)}
           />
         )}
+        <div className="absolute -bottom-6 mx-auto flex w-full justify-center md:justify-end pointer-events-none">
+          <ChatInputTokenCount content={content} />
+        </div>
       </ChatInputContainer>
       <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
+        Offered with ❤️ by <a href="https://www.ae.studio"> <img src="https://uploads-ssl.webflow.com/631bb7d9ce49ea551a645c08/644c35a2af19ac28f46e4e71_AE%20Studio%20(Dark)%203.6.23%20-%20Official.png" alt="AE Studio logo" width='131' height='33'/></a>
+      </div>
+      <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
+        Created using 
         <a
           href="https://github.com/dotneet/smart-chatbot-ui"
           target="_blank"
@@ -447,10 +489,7 @@ export const ChatInput = ({
         >
           Smart ChatBot UI
         </a>
-        .{' '}
-        {t(
-          "Smart Chatbot UI is an advanced chatbot kit for OpenAI's chat models aiming to mimic ChatGPT's interface and functionality.",
-        )}
+        .
       </div>
     </div>
   );
