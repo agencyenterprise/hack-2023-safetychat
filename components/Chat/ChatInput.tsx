@@ -439,18 +439,7 @@ export const ChatInput = ({
         )}
       </ChatInputContainer>
       <div className="px-3 pt-2 pb-3 text-center text-[14px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
-       Offered with ❤️ by <a href="https://www.ae.studio" style={{color: '#eee'}}>AE Studio</a>.
-      </div>
-      <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
-        Created using {' '} 
-        <a
-          href="https://github.com/dotneet/smart-chatbot-ui"
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
-        >
-           Smart ChatBot UI
-        </a>
+       Offered with ❤️ by <a href="https://www.ae.studio" style={{color: '#aaa', fontSize: '16px', fontWeight: 'bold'}}>AE Studio</a>.
       </div>
     </div>
   );
