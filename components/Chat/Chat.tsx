@@ -293,17 +293,7 @@ export const Chat = memo(({ stopConversationRef }: Props) => {
                         'SafetyChat'
                       )}
                     </div>
-                    <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
-                      Created using {' '} 
-                      <a
-                        href="https://github.com/dotneet/smart-chatbot-ui"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline"
-                      >
-                        Smart ChatBot UI
-                      </a>
-                    </div>
+
                   {models.length > 0 && (
                     <div className="flex h-full flex-col space-y-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-600">
                       <ModelSelect />
