@@ -439,6 +439,10 @@ export const ChatInput = ({
         )}
       </ChatInputContainer>
       <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
+        Offered with ❤️ by <a href="https://www.ae.studio"> <img src="https://uploads-ssl.webflow.com/631bb7d9ce49ea551a645c08/644c35a2af19ac28f46e4e71_AE%20Studio%20(Dark)%203.6.23%20-%20Official.png" alt="AE Studio logo" width='131' height='33'/></a>
+      </div>
+      <div className="px-3 pt-2 pb-3 text-center text-[12px] text-black/50 dark:text-white/50 md:px-4 md:pt-3 md:pb-6">
+        Created using 
         <a
           href="https://github.com/dotneet/smart-chatbot-ui"
           target="_blank"
@@ -447,10 +451,7 @@ export const ChatInput = ({
         >
           Smart ChatBot UI
         </a>
-        .{' '}
-        {t(
-          "Smart Chatbot UI is an advanced chatbot kit for OpenAI's chat models aiming to mimic ChatGPT's interface and functionality.",
-        )}
+        .
       </div>
     </div>
   );
